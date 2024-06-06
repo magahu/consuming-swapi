@@ -29,52 +29,87 @@ interface swapiResults {
   results: Character[];
 }
 
+interface Planet {
+  name: string;
+  rotation_period: string;
+  orbital_period: string;
+  diameter: string;
+  climate: string;
+  gravity: string;
+  terrain: string;
+  surface_water: string;
+  population: string;
+  residents: string[];
+  films: string[];
+  created: string;
+  edited: string;
+  url: string;
+}
 
+interface ViewCharacterData {
+  name: string;
+  birth_year: string;
+  homeworld: Planet;
+  gender: string;
+}
 
 function CharactersTable() {
   const SWAPI_URL = "http://swapi.dev/api/people";
-  const [swapiData, setSwapiData] = useState<swapiResults>();
+  const [swapiData, setSwapiData] = useState<ViewCharacterData[]>();
   //const [planet, setPlanet] = useState<swapiPlanet>
-  const [character, setCharacter] = useState<Character>();
+  const [character, setCharacter] = useState<ViewCharacterData>();
   const [nCharacter, setNcharacter] = useState<number>(1);
   const fetchingData = async () => {
+    const response = await fetch(SWAPI_URL);
+    const data: swapiResults = await response.json();
+    //
+    const swapiCharacters: ViewCharacterData[] = []
+    data.results.map(async ( character: Character )=>{
+      const planet: Planet = await fetchingPlanet(character.homeworld);
+      const viewCharacterData = {
+        name: character.name,
+        birth_year: character.birth_year,
+        homeworld: planet,
+        gender: character.gender,
+      }
+      swapiCharacters.push(viewCharacterData)
+    })
+
+    //
+
+    setSwapiData(swapiCharacters);
+  };
+  
+  const fetchingCharacter = async () => {
     // eslint-disable-next-line no-debugger
     debugger;
-    const response = await fetch(SWAPI_URL);
-    const data = await response.json();
-    setSwapiData(data);
-  };
-  const fetchingCharacter = async () => {
-    // Set up options for the fetch request
-    /*const options: RequestInit = {
-      method: "GET", // *GET, POST, PUT, DELETE, etc.
-      mode: "cors", // no-cors, *cors, same-origin
-      cache: "no-cache", // *default, no-cache, reload, force-cache, only-if-cached
-      credentials: "same-origin", // include, *same-origin, omit
-      headers: {
-        "Content-Type": "application/json",
-        // 'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      redirect: "follow", // manual, *follow, error
-      referrerPolicy: "no-referrer", // no-referrer, *no-referrer-when-downgrade, origin, origin-when-cross-origin, same-origin, strict-origin, strict-origin-when-cross-origin, unsafe-url
-      // body: JSON.stringify(data), // body data type must match "Content-Type" header
-    };*/
-
-    // const response = await fetch(SWAPI_URL + "/" + nCharacter, options);
     const response = await fetch(SWAPI_URL + "/" + nCharacter);
-    const data = await response.json();
-    setCharacter(data);
+    const data: Character = await response.json();
+
+    const planet: Planet = await fetchingPlanet(data.homeworld);
+    const viewCharacterData = {
+      name: data.name,
+      birth_year: data.birth_year,
+      homeworld: planet,
+      gender: data.gender,
+    };
+    debugger
+    if(data && planet){
+      setCharacter(viewCharacterData);
+    }
+    
   };
 
-  const fetchingPlanet = async () => {
-    const response = await fetch(SWAPI_URL + "/" + nCharacter);
+  const fetchingPlanet = async (planet_url: string) => {
+    debugger
+    const response = await fetch(planet_url);
     const data = await response.json();
-    setPlanet(data);
-  }
+    return data;
+  };
 
   const GoNext = () => {
-    if (swapiData != undefined && swapiData.count != undefined) {
-      if (nCharacter + 1 <= swapiData.count) {
+    if (swapiData != undefined && swapiData.length != undefined) {
+      if (nCharacter + 1 <= swapiData.length) {
         setNcharacter((nCharacter) => nCharacter + 1);
       } else {
         setNcharacter(1);
@@ -83,18 +118,18 @@ function CharactersTable() {
   };
 
   const goPrevious = () => {
-    if (swapiData != undefined && swapiData.count != undefined) {
+    if (swapiData != undefined && swapiData.length != undefined) {
       if (nCharacter - 1 >= 1) {
         setNcharacter((nCharacter) => nCharacter - 1);
       } else {
-        setNcharacter(swapiData.count);
+        setNcharacter(swapiData.length);
       }
     }
   };
 
   const goLast = () => {
-    if (swapiData?.count != undefined && swapiData.count != undefined) {
-      setNcharacter(swapiData.count);
+    if (swapiData?.length != undefined && swapiData.length != undefined) {
+      setNcharacter(swapiData.length);
     }
   };
 
@@ -108,7 +143,7 @@ function CharactersTable() {
 
   return (
     <Fragment>
-      {swapiData?.results ? (
+      {swapiData ? (
         <Fragment>
           <table className="Table">
             <tr>
@@ -118,12 +153,12 @@ function CharactersTable() {
               <th>Gender</th>
             </tr>
             <tbody>
-              {swapiData?.results.map((result, i) => {
+              {swapiData?.map((result, i) => {
                 return (
                   <tr key={i}>
                     <td>{result.name}</td>
                     <td>{result.birth_year}</td>
-                    <td>{result.homeworld}</td>
+                    <td>{result.homeworld.name}</td>
                     <td>{result.gender}</td>
                   </tr>
                 );
@@ -153,17 +188,25 @@ function CharactersTable() {
                 <tr>
                   <td>{character?.name}</td>
                   <td>{character?.birth_year}</td>
-                  <td>{character?.homeworld}</td>
+                  <td>{character?.homeworld.name}</td>
                   <td>{character?.gender}</td>
                 </tr>
               </tbody>
             </table>
           </div>
           <div className="Container">
-            <button className='AppButton' onClick={() => setNcharacter(1)}>First character</button>
-            <button className='AppButton' onClick={goPrevious}>Previous character</button>
-            <button className='AppButton' onClick={GoNext}>Next character</button>
-            <button className='AppButton' onClick={goLast}>Last character</button>
+            <button className="AppButton" onClick={() => setNcharacter(1)}>
+              First character
+            </button>
+            <button className="AppButton" onClick={goPrevious}>
+              Previous character
+            </button>
+            <button className="AppButton" onClick={GoNext}>
+              Next character
+            </button>
+            <button className="AppButton" onClick={goLast}>
+              Last character
+            </button>
           </div>
         </Fragment>
       ) : (
